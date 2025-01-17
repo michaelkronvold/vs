@@ -1,0 +1,37 @@
+# docker build -t artifactory.dev.e2open.com/dcops-docker-repo/kubernetes-inventory-management:tanzu .
+
+FROM	alpine
+
+ENV		USER_ID=50507 \
+		USER_NAME=eoadmin \
+		KAFKA_VERSION=2.13-3.8.0 \
+		HOME=/opt/inventory \
+		# KUBECTL=kubectl-v1.28 \
+		TANZU_CLI_CEIP_OPT_IN_PROMPT_ANSWER=yes
+
+RUN		set -x && \
+		apk update && \
+		apk upgrade && \
+		apk add --no-cache jq yq python3 py3-pip fzf fzf-tmux tmux perl perl-json perl-dev perl-log-log4perl bash openjdk17-jre coreutils su-exec curl wget ca-certificates grep perl-switch gcompat openssl git make unzip 
+
+COPY	build /build
+
+RUN 	set -x && \
+		cd /build && \
+		cp -rp kubectl/* /usr/local/bin && \
+		chmod 0755 /usr/local/bin/* && \
+		# ln -s /usr/local/bin/$KUBECTL /usr/local/bin/kubectl && \
+		cd /opt && \
+		tar xf /build/kafka_${KAFKA_VERSION}.tgz && \
+		mv kafka_${KAFKA_VERSION} kafka && \
+		cp -rp /build/inventory /opt && \
+		adduser -s /bin/bash -SDh ${HOME} -u ${USER_ID} ${USER_NAME} && \
+		mkdir ${HOME}/log ${HOME}/tmp  && \
+		chown ${USER_NAME} -R ${HOME} && \
+		rm -rf /build
+
+USER 	${USER_NAME}
+
+WORKDIR ${HOME}
+
+ENTRYPOINT	["/opt/inventory/bin/entrypoint.sh"]
